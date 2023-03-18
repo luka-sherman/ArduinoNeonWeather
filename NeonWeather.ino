@@ -3,20 +3,11 @@
 
   HCDE 539 Winter 2023
   University of Washington
-  
-  Inspired by project by Emmanuel Odunlade http://randomnerdtutorials.com
-  */
+*/
 
 #include <ArduinoJson.h>
 #include <WiFiNINA.h>
 #include <Adafruit_NeoPixel.h>
-
-#include "secrets.h"
-
-#define POWER_PIN A0
-#define LED_PIN A1
-#define LED_COUNT 20
-
 
 /*
 example of redacted secrets.h file from same directory: 
@@ -25,11 +16,16 @@ example of redacted secrets.h file from same directory:
   #define SECRET_API_KEY "my openWeatherMap api key";
   #define SECRET_API_BACKUP_KEY "my backup openWeatherMap api key";
 */
+#include "secrets.h"
+
+#define POWER_PIN A0
+#define LED_PIN A1
+#define LED_COUNT 20
+#define SERVER "api.openweathermap.org"
+
 const char SSID[] = SECRET_SSID;
 const char SSID_PASSWORD[] = SECRET_PASS;
 const String API_KEY = SECRET_API_KEY;
-
-const char SERVER[] = "api.openweathermap.org";
 
 WiFiClient client;
 const unsigned long apiGetInterval = 600000;
@@ -37,6 +33,7 @@ unsigned long lastConnectionTime = 0;
 
 bool oldState = LOW;
 String jsonText;
+String aqiJsonText;
 
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_RGB + NEO_KHZ400);
 
@@ -61,7 +58,7 @@ const String PIN_CITIES[][3] = {
   { "MCMURDO STATION,AQ", "-77.6554", "0168.2227" },
   { "HILO,US", "019.7300", "-155.0900" },
 };
-String currentCity = "";
+int currentCity = 0;
 
 
 /*
@@ -70,6 +67,7 @@ initalize input pins and clear led strip
 void setup() {
 
   Serial.begin(9600);
+  Serial.println("\n\n\nstarted");
 
   for (int i = 2; i <= 13; ++i) {
     pinMode(i, INPUT_PULLUP);
@@ -99,7 +97,8 @@ void loop() {
     if (isNewRotaryCity() || (millis() - lastConnectionTime) >= apiGetInterval) {
       Serial.println("Has been " + String(millis() - lastConnectionTime) + "ms since last httpRequest compared to " + String(apiGetInterval) + "ms interval");
       lastConnectionTime = millis();
-      makehttpRequest();
+      jsonText =  makehttpRequest("/data/2.5/forecast?q=" + PIN_CITIES[currentCity][0] + "&APPID=" + API_KEY + "&mode=json&units=imperial&exclude=hourly,daily&cnt=2 HTTP/1.1");
+      aqiJsonText = makehttpRequest("/data/2.5/air_pollution?lat=" + PIN_CITIES[currentCity][1] + "&lon=" + PIN_CITIES[currentCity][2] + "&appid=" + API_KEY);
       setValuesFromJson();
     }
 
@@ -147,17 +146,16 @@ sets value of currentCity based on rotary switch selector position
 bool isNewRotaryCity() {
   for (int i = 2; i <= 13; ++i) {
     if (digitalRead(i) == LOW) {
-      String newCity = PIN_CITIES[i][0];
-      if (!currentCity.equals(newCity)) {
-        Serial.println("new city: " + newCity);
-        currentCity = newCity;
+      if (currentCity!=i) {
+        currentCity = i;
+        Serial.println("new city: " + PIN_CITIES[i][0]);
         return true;
       }
       return false;
     }
   }
-  currentCity = PIN_CITIES[2][0];
-  Serial.println("\nERROR: could not detect rotary pin, will use previous value of " + String(currentCity) + "\n");
+  currentCity = 2;
+  Serial.println("\nERROR: could not detect rotary pin, will use previous value of " + String(PIN_CITIES[currentCity][0]) + "\n");
   return false;
 }
 
@@ -165,15 +163,15 @@ bool isNewRotaryCity() {
 /*
 updates jsonText with string returned from api server 
 */
-void makehttpRequest() {
+String makehttpRequest(String apiCall) {
 
   boolean isJsonStarted = false;
-  jsonText = "";
+  String json = "";
 
   if (client.connect(SERVER, 80)) {
 
     Serial.println("client connected, getting json...");
-    client.println("GET /data/2.5/forecast?q=" + currentCity + "&APPID=" + API_KEY + "&mode=json&units=imperial&exclude=hourly,daily&cnt=2 HTTP/1.1");
+    client.println("GET "+apiCall);
     client.println("Host: " + String(SERVER));
     client.println("User-Agent: ArduinoWiFi/1.1");
     client.println("Connection: close");
@@ -194,7 +192,7 @@ void makehttpRequest() {
       }
 
       if (isJsonStarted == true) {
-        jsonText += c;
+        json += c;
       }
     }
 
@@ -203,6 +201,8 @@ void makehttpRequest() {
   }
 
   client.stop();
+  Serial.println("returning: "+json);
+  return json;
 }
 
 
@@ -211,12 +211,14 @@ sets speed, brightness, primaryColor, secondaryColor based on jsonText
 */
 void setValuesFromJson() {
 
-  Serial.println(jsonText);
-
   DynamicJsonDocument doc(1024);
-
   DeserializationError error = deserializeJson(doc, jsonText);
   if (error)
+    return;
+
+  DynamicJsonDocument aqiDoc(1024);
+  DeserializationError error2 = deserializeJson(aqiDoc, aqiJsonText);
+  if (error2)
     return;
 
   float temp_feels_like = doc["list"][0]["main"]["feels_like"];     // in F
@@ -228,14 +230,17 @@ void setValuesFromJson() {
   float rainFall = doc["list"][0]["rain"]["3h"];                    // inches
   bool isDay = doc["list"][0]["sys"]["pod"] == "d" ? true : false;  // "n" or "d"
 
-  Serial.println(temp_feels_like);
-  Serial.println(description);
-  Serial.println(clouds);
-  Serial.println(probPercip);
-  Serial.println(windSpeed);
-  Serial.println(snowFall);
-  Serial.println(rainFall);
-  Serial.println(isDay);
+  int aqi = aqiDoc["list"][0]["main"]["aqi"];                        // 1 = Good, 2 = Fair, 3 = Moderate, 4 = Poor, 5 = Very Poor
+
+  Serial.println("\ntemp_feels_like:" + String(temp_feels_like));
+  Serial.println("description: \t" + description);
+  Serial.println("clouds: \t" + String(clouds));
+  Serial.println("probPercip: \t" + String(probPercip));
+  Serial.println("windSpeed: \t" + String(windSpeed));
+  Serial.println("snowFall: \t" + String(snowFall));
+  Serial.println("rainFall: \t" + String(rainFall));
+  Serial.println("isDay:\ \t\t" + String(isDay));
+  Serial.println("aqi: \t\t" + String(aqi));
 
   speed = round(200 / (windSpeed + .01));
 
@@ -249,7 +254,7 @@ void setValuesFromJson() {
     primaryColor = strip.Color(227, 194, 27);
     secondaryColor = strip.Color(1, 1, 122);
   }
-  if (currentCity.equals("SVALBARD,SJ")) {
+  if (PIN_CITIES[currentCity][0].equals("SVALBARD,SJ")) {
     primaryColor = strip.Color(168, 71, 163);
     secondaryColor = strip.Color(43, 26, 110);
   }
