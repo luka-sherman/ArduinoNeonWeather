@@ -35,10 +35,10 @@ bool oldState = LOW;
 String jsonText;
 String aqiJsonText;
 
-Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_RGB + NEO_KHZ400);
+Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ400);
 
-uint32_t primaryColor = strip.Color(227, 194, 27);
-uint32_t secondaryColor = strip.Color(255, 174, 0);
+uint32_t primaryColor = strip.Color(227, 170, 27);
+uint32_t secondaryColor = strip.Color(255, 140, 0);
 int brightness = 50;
 int speed = 50;
 
@@ -94,7 +94,14 @@ void loop() {
       connectWiFi();
     }
 
-    if (isNewRotaryCity() || (millis() - lastConnectionTime) >= apiGetInterval) {
+    // waits for rotary dial to stop moving 
+    bool isNewCity = false;
+    while (isNewRotaryCity()) {
+      isNewCity = true;
+      delay(1000);
+    }
+
+    if (isNewCity || (millis() - lastConnectionTime) >= apiGetInterval) {
       Serial.println("Has been " + String(millis() - lastConnectionTime) + "ms since last httpRequest compared to " + String(apiGetInterval) + "ms interval");
       lastConnectionTime = millis();
       jsonText =  makehttpRequest("/data/2.5/forecast?q=" + PIN_CITIES[currentCity][0] + "&APPID=" + API_KEY + "&mode=json&units=imperial&exclude=hourly,daily&cnt=2 HTTP/1.1");
@@ -207,20 +214,21 @@ String makehttpRequest(String apiCall) {
 
 
 /* 
-sets speed, brightness, primaryColor, secondaryColor based on jsonText
+sets speed, brightness, primaryColor, secondaryColor based on api response json  
 */
 void setValuesFromJson() {
 
+  // create ArduinoJson DynamicJsonDocument doc and aqiDoc to be able to parse jsonText and aqiJsonText
   DynamicJsonDocument doc(1024);
-  DeserializationError error = deserializeJson(doc, jsonText);
-  if (error)
-    return;
-
   DynamicJsonDocument aqiDoc(1024);
+  DeserializationError error = deserializeJson(doc, jsonText);
   DeserializationError error2 = deserializeJson(aqiDoc, aqiJsonText);
-  if (error2)
+  if (error2 || error) {
+    Serial.println("Error when deserializing json");
     return;
+  }
 
+  // unpack values 
   float temp_feels_like = doc["list"][0]["main"]["feels_like"];     // in F
   String description = doc["list"][0]["weather"][0]["main"];        // example Clouds Clear Snow
   int clouds = doc["list"][0]["clouds"]["all"];                     // range 0 - 100
@@ -242,21 +250,26 @@ void setValuesFromJson() {
   Serial.println("isDay:\ \t\t" + String(isDay));
   Serial.println("aqi: \t\t" + String(aqi));
 
+  // assign variables used for led strip 
   speed = round(200 / (windSpeed + .01));
 
-  if (description.equals("Clouds")) {
-    primaryColor = strip.Color(158, 158, 158);
-    secondaryColor = strip.Color(196, 196, 196);
-  } else if (description.equals("Snow")) {
-    primaryColor = strip.Color(227, 194, 27);
-    secondaryColor = strip.Color(1, 1, 122);
-  } else if (description.equals("Rain")) {
-    primaryColor = strip.Color(227, 194, 27);
-    secondaryColor = strip.Color(1, 1, 122);
-  }
   if (PIN_CITIES[currentCity][0].equals("SVALBARD,SJ")) {
     primaryColor = strip.Color(168, 71, 163);
-    secondaryColor = strip.Color(43, 26, 110);
+    secondaryColor = strip.Color(26, 130, 83);
+  }
+  else if (aqi > 3) {
+    primaryColor = strip.Color(122, 14, 0);
+    secondaryColor = strip.Color(156, 25, 25);
+  }
+  else if (description.equals("Clouds")) {
+    primaryColor = strip.Color(158, 158, 158);
+    secondaryColor = strip.Color(196, 196, 196);
+  } else if (description.equals("Snow") || (snowFall > 0)) {
+    primaryColor = strip.Color(164, 199, 235);
+    secondaryColor = strip.Color(75, 75, 196);
+  } else if (description.equals("Rain") || (rainFall > 0)) {
+    primaryColor = strip.Color(0, 8, 117);
+    secondaryColor = strip.Color(18, 22, 92);
   }
 
   if (isDay) {
@@ -280,26 +293,32 @@ void colorLedStrip() {
     delay(speed);                                //  Pause for a moment
   }
 
-  uint8_t targetColor[] = { 255, 192, 203 };
-  strip.setPixelColor(10, 0, 255, 0);
-  strip.show();
-  uint8_t fadeValue;  // 0 = off, 255 = full brightness
-  for (int pixelId = 0; pixelId < 20; pixelId++) {
-    // start at zero brightness
-    fadeValue = 0;
-    // fade in
-    while (fadeValue < 255) {
-      strip.setPixelColor(pixelId, fadeValue * targetColor[0] / 255, fadeValue * targetColor[1] / 255, fadeValue * targetColor[2] / 255);
-      fadeValue++;
-      strip.show();
-      delay(5);
-    }
-    // fade out
-    while (fadeValue > 0) {
-      strip.setPixelColor(pixelId, fadeValue * targetColor[0] / 255, fadeValue * targetColor[1] / 255, fadeValue * targetColor[2] / 255);
-      fadeValue--;
-      strip.show();
-      delay(5);
-    }
+  for (int i = 0; i < strip.numPixels(); i++) {  // For each pixel in strip...
+    strip.setPixelColor(i, secondaryColor);      //  Set pixel's color (in RAM)
+    strip.show();                                //  Update strip to match
+    delay(speed);                                //  Pause for a moment
   }
+
+  // uint8_t targetColor[] = { 255, 192, 203 };
+  // strip.setPixelColor(10, 0, 255, 0);
+  // strip.show();
+  // uint8_t fadeValue;  // 0 = off, 255 = full brightness
+  // for (int pixelId = 0; pixelId < 20; pixelId++) {
+  //   // start at zero brightness
+  //   fadeValue = 0;
+  //   // fade in
+  //   while (fadeValue < 255) {
+  //     strip.setPixelColor(pixelId, fadeValue * targetColor[0] / 255, fadeValue * targetColor[1] / 255, fadeValue * targetColor[2] / 255);
+  //     fadeValue++;
+  //     strip.show();
+  //     delay(5);
+  //   }
+  //   // fade out
+  //   while (fadeValue > 0) {
+  //     strip.setPixelColor(pixelId, fadeValue * targetColor[0] / 255, fadeValue * targetColor[1] / 255, fadeValue * targetColor[2] / 255);
+  //     fadeValue--;
+  //     strip.show();
+  //     delay(5);
+  //   }
+  // }
 }
