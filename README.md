@@ -1,12 +1,16 @@
-# ArduinoNeonWeather
+# Arduino Meterology
+by Luka Sherman
+
+---
+
  
 ## Table of contents
 1. [Descripton](#description)
 1. [Demo Video](#video)
 1. [Circuit](#circuit)
 1. [Construction](#construction)
-1. [Software](#software)
 1. [Gallery](#gallery)
+1. [Software](#software)
 1. [Attribution](#attribution)
 1. [Cat](#cat)
 1. [Obituary](#obituary)
@@ -27,6 +31,8 @@ This two-week project was done for Andy Davidson's HCDE 539 Physical Computing a
 
 ## Demo Video <a name="video"></a>
 
+For display purposes, the piece is sitting on a pegboard shelf, and the LED loosely bent around hooks. The LED is flexible and can be arranged to fit any space. 
+
 [![YouTube thumbnail](http://img.youtube.com/vi/f0F9UkN5C40/0.jpg)](http://www.youtube.com/watch?v=f0F9UkN5C40)
 
 ## Circuit <a name="circuit"></a>
@@ -42,8 +48,10 @@ This two-week project was done for Andy Davidson's HCDE 539 Physical Computing a
 * Resistors: 220 ohms x2, 10k ohms x1
 * Capacitor 1000uf
 * Wire 22 gauge, solder, heat shrink tubing
+
 ### Breadboard Diagram <a name="breadboard"></a>
 ![bb](/images/circuit_breadboard.png)
+
 ### Schematic Diagram <a name="schematic"></a>
 ![sc](/images/circuit_schematic.png)
 
@@ -53,6 +61,20 @@ I wanted the piece to be able to be displayed in a home, so formed several const
 * **Power:** It had to be powered without USB connection to a computer, and only one power input for practicality. This model of NeoPixel already required 12V of power, more than the 5V the Arduino could supply, so I used the same power source to power the Arduino with the Vin port. This works because the Vin pin goes to the Arduino's 5V regulator, and the power supply is within the 7-12V unregulated range permitted. 
 * **Robust:** I wanted everything to be firmly secured, and not delicate. The metal switches are heavy-duty and give a satisfying tactile feel. Everything is firmly held in place by an acrylic housing. The 1/4in acrylic is cut into two 5in x 7in sides, with holes cut in the top piece for the two switches, and holes cut into the bottom piece to screw in the Arduino and breadboard. 3in screws were used to connect the pieces, with plastic spacers between them to fill the empty space, and to lift the breadboard to the appropriate height in reference to the Arduino. All screws are affixed to washers on the back side of the acrylic. It is portable, and can be moved around without impact to the internals, while still being able to reach the components and adjust parts as needed.
 * **Artistic:** I wanted it to have an industrial feel, and the high-quality thick acrylic allows the internals to be on display. I soldered all components and attempted to arrange them in a visually appealing way. I used an old-school manual label maker to label the rotary positions with cities (arranged from clockwise latitude coordinates, clockwise around the dial), and pointed the edges at the precise rotary marker to minimize the need for additional arrows. The LED strip was selected for its finished quality that matched the feel of the overall piece. The LED on the power button adds an additional level of user feedback. 
+
+## Gallery <a name="gallery"></a>
+
+Front Angle 
+![front angle view image](/images/angle.jpeg)
+
+Front
+![front view image](/images/front.jpeg)
+
+Back
+![back view image](/images/back.jpeg)
+
+Side
+![side view image](/images/side.jpeg)
 
 ## Software Implementation <a name="software"></a>
 
@@ -65,24 +87,20 @@ I wanted the piece to be able to be displayed in a home, so formed several const
 7. The strip will continue with the same animation profile until either a new rotary position is selected, or if 10 minutes have elapsed since the last `httpRequest`. The free version of the API key can be used 60 times a minute, or 1,000,000 times a month. I have two API personal keys in case of capacity or for demo purposes. 
 8. If the power switch is turned off, the LED strip will turn off after it finishes the current cycle (0-3 seconds) and it will disconnect from WiFi.
 
-## Gallery <a name="gallery"></a>
-
-
-
 ## Attribution <a name="attribution"></a>
 
-API:
+### API:
 * [OpenWeatherMap](https://openweathermap.org)  free API to get current weather conditions at a given location.
 
-Arduino Libraries:
+### Arduino Libraries:
 * [Adafruit\_NeoPixel](https://adafruit.github.io/Adafruit_NeoPixel/html/class_adafruit___neo_pixel.html) to send commands to light the LED strip.
 * [ArduinoJson](https://arduinojson.org) to parse the JSON API response.
 * [WiFiNINA](https://docs.arduino.cc/tutorials/communication/wifi-nina-examples) to connect the Arduino to WiFi.
 
-Software:
+### Software:
 * [Fritzing](http://fritzing.org) to draw the above circuit breadboard and schematic diagrams.
 
-Inspiration:
+### Inspiration:
 * [ESP8266 Weather Forecaster for Arduino and OpenWeatherMap API](https://randomnerdtutorials.com/esp8266-weather-forecaster/)
 
 ## Cat <a name="cat"></a>
@@ -92,4 +110,4 @@ Inspiration:
 Candid demonstration of an unintentional side effect - my cat loves watching the light cycle.
 
 ## Obituary <a name="obituary"></a>
-† This project is dedicated to the brave Arduino Uno WiFi Rev2 that I accidentally fried in the process, may she rest in smoldered pieces.
+† *This project is dedicated to the brave Arduino Uno WiFi Rev2 that I accidentally fried in the process, may she rest in smoldered pieces.*
